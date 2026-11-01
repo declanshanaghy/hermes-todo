@@ -176,13 +176,14 @@ flowchart LR
   W -- "press a chip --> same route the /todo verb uses" --> R
 ```
 
-The **open gap**: the `dashboard/plugin_api.py` route namespace
+The **seam, mostly closed**: the `dashboard/plugin_api.py` route namespace
 (`/api/plugins/<name>`) is served by `hermes dashboard` and the Desktop
-app, not by a plain `hermes --tui` session. Options on the table: (a) ship
-the Desktop pane first (its SDK has first-class backend REST), (b) have the
-widget fetch a dashboard server that hermes-todo starts (or asks you to
-start), (c) ask upstream for a plugin-served widget data route. This is
-decided before phase 5 starts, not during.
+app, not by a plain `hermes --tui` session — so the pane needs that server
+up. Chip presses act through it: store verbs hit the store directly, and a
+run verb relays to the gateway (`connect_gateway`), which runs the same
+`/todo` dispatcher against the session that last used the list — the press
+lands in the chat exactly as if typed. The last inch (no server needed at
+all) would take an upstream plugin-served widget data route.
 
 ### Display rules carried over from claude-todo's pane
 

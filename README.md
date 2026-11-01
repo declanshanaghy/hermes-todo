@@ -77,8 +77,10 @@ Two TUI widgets in `widgets/` (copy them to `~/.hermes/tui-widgets/`):
 the recorded calls), `/todo-card` docks the ambient rail card. They fetch
 the plugin's dashboard route (`dashboard/plugin_api.py`, mounted at
 `/api/plugins/hermes-todo/`), so a dashboard server or the Desktop app
-must be up — a plain `hermes --tui` session serves no route. That seam,
-and the rendered mockups, are in `docs/hermes-orchestration.md` §5.
+must be up. Chip presses act for real: store verbs write the store, and a
+run verb relays through the gateway, which runs the same `/todo`
+dispatcher against the session that last used the list — exactly as if
+you typed it. Details and mockups: `docs/hermes-orchestration.md` §5.
 
 ## Layout
 

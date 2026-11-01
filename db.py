@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS session_ends (
 _MIGRATIONS = (
     ("todos", "handle", "TEXT"),
     ("todos", "draft_key", "TEXT"),
+    ("lists", "last_session", "TEXT"),
 )
 
 
@@ -475,6 +476,23 @@ class Store:
             (agent_id, limit),
         ).fetchall()
         return [dict(r) for r in reversed(rows)]
+
+    def touch_session(self, dir: str, session_id: str) -> None:
+        """Remember the session that last used this list (written through):
+        the pane's route relays run verbs to it, so a chip press lands in
+        the chat that owns the backlog."""
+        if not session_id:
+            return
+        self.conn.execute("INSERT OR IGNORE INTO lists (dir, rev) VALUES (?, 0)", (dir,))
+        self.conn.execute(
+            "UPDATE lists SET last_session = ? WHERE dir = ?", (session_id, dir)
+        )
+
+    def last_session(self, dir: str) -> str | None:
+        row = self.conn.execute(
+            "SELECT last_session FROM lists WHERE dir = ?", (dir,)
+        ).fetchone()
+        return (row["last_session"] if row else None) or None
 
     def note_session_end(self, session_id: str) -> None:
         self.conn.execute(

@@ -36,6 +36,10 @@ class Dispatcher:
         if not raw:
             return self._usage()
         me = str(kwargs.get("session_id") or "")
+        try:
+            self.store_of().touch_session(self.dir_of(), me)
+        except Exception:
+            pass  # the pane's relay needs it, but a missed touch is never fatal
         verb, _, rest = raw.partition(" ")
         verb = verb.strip().lower()
         if verb in ("help", "?"):

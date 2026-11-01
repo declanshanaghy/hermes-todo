@@ -114,10 +114,41 @@ async def details(dir: str, n: int) -> dict:
 
 
 # The actions the pane may take here, in the dashboard's process: the ones
-# that only touch the store. A run verb needs the session that owns the
-# todo (its lifecycle handles), so those answer with a note instead.
+# that only touch the store. A run verb belongs to the session that owns
+# the todo, so those relay to the gateway: it runs the same /todo dispatcher
+# the chat does, against the session that last used this list.
 _PANE_ACTIONS = {"add", "rename", "delete", "reset", "takeover", "leave"}
 _RUN_VERBS = {"exec", "auto", "fire", "resume", "pause", "stop", "refine", "restart"}
+
+
+async def _relay_run_verb(dir: str, verb: str, n: int | None) -> dict:
+    """Hand a run verb to the gateway, which runs our /todo command in the
+    session that last used this list (the same path as typing it). The
+    gateway's dispatcher then launches or injects as if the person typed it."""
+    import asyncio
+
+    store = _store()
+    sid = store.last_session(dir)
+    if not sid:
+        return {
+            "ok": False,
+            "note": "no session has used this list yet — type /todo list in your chat once, then press again",
+        }
+    try:
+        async def call() -> str:
+            from hermes_cli.gateway_client import connect_gateway
+
+            async with connect_gateway() as client:
+                reply = await client.rpc(
+                    "slash.exec", session_id=sid, command=f"todo {verb} {n or ''}".strip()
+                )
+                return str((reply or {}).get("output") or "")
+
+        output = await asyncio.wait_for(call(), timeout=20)
+        await asyncio.to_thread(store.touch_session, dir, sid)
+        return {"ok": True, "reply": output[:600]}
+    except Exception as exc:
+        return {"ok": False, "note": f"couldn't reach the session for this list: {exc}"}
 
 
 def _num(value: Any) -> int | None:
@@ -135,11 +166,7 @@ async def action(body: dict) -> dict:
     dir = str(body.get("dir") or "")
     n = _num(body.get("n"))
     if verb in _RUN_VERBS:
-        target = f" #{n}" if n else ""
-        return {
-            "ok": False,
-            "note": f"type /todo {verb}{target} in the chat — runs belong to the session that owns the todo",
-        }
+        return await _relay_run_verb(dir, verb, n)
     if verb not in _PANE_ACTIONS:
         return {"ok": False, "error": f"unknown action {verb!r}"}
     try:

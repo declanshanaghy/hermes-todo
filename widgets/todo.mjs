@@ -61,8 +61,11 @@ export default function register(sdk) {
       return
     }
     const res = await post({ verb, n: todo.n, confirmed })
-    const note = res.error || res.note || (res.ok ? `# ${todo.n}: ${verb} done` : `# ${todo.n}: ${res.error || verb} refused`)
-    land({ note })
+    const note = res.error
+      || res.note
+      || res.reply
+      || (res.ok ? `# ${todo.n}: ${verb} done` : `# ${todo.n}: ${verb} refused`)
+    land({ note: String(note).replace(/\n+/g, ' · ') })
     await refresh()
   }
 

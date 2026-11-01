@@ -197,10 +197,11 @@ process. Widgets' only I/O is `fetch`, so the pane reads the plugin's
 dashboard route (`dashboard/plugin_api.py`, mounted at
 `/api/plugins/hermes-todo/`) — served by `hermes dashboard` and the Desktop
 app, not by a plain `hermes --tui` session. The widgets in `widgets/`
-therefore take a base URL, a repo dir and a token as constants, and the
-route's run verbs answer with a note to type the `/todo` verb in the chat
-(runs belong to the session that owns the todo). An upstream
-plugin-served widget data route would close the seam; until then the
-Desktop pane (whose SDK has first-class backend REST) is the
-fully-supported surface. `docs/hermes-orchestration.md` §5 has the details
-and the rendered mockups.
+therefore take a base URL, a repo dir and a token as constants. A run
+verb pressed in the pane relays to the gateway (`connect_gateway`, the
+same client path the classic CLI uses): it runs the very same `/todo`
+dispatcher against the session that last used the list, so the press acts
+exactly as if the person typed it. The remaining seam is only that the
+dashboard server must be up for the pane at all — an upstream
+plugin-served widget data route would remove that too.
+`docs/hermes-orchestration.md` §5 has the details and the rendered mockups.

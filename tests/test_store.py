@@ -225,6 +225,18 @@ def test_the_database_is_wal(tmp_path):
     assert mode == "wal"
 
 
+def test_the_list_remembers_the_session_that_last_used_it(store):
+    assert store.last_session("/repos/a") is None
+    store.touch_session("/repos/a", "s1")
+    assert store.last_session("/repos/a") == "s1"
+    store.touch_session("/repos/a", "s2")
+    assert store.last_session("/repos/a") == "s2"  # the latest wins
+    store.touch_session("/repos/a", "")  # an empty id never touches
+    assert store.last_session("/repos/a") == "s2"
+    store.touch_session("/repos/b", "s3")  # a fresh list row, no rev guard needed
+    assert store.last_session("/repos/b") == "s3"
+
+
 def test_done_ttl_from_the_environment(monkeypatch):
     assert db.done_ttl_minutes() == 5.0
     monkeypatch.setenv("HERMES_TODO_DONE_TTL_MINUTES", "30")

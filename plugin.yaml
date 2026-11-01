@@ -1,5 +1,5 @@
 name: hermes-todo
-version: 0.2.0
+version: 0.2.1
 description: Per-repo todo backlog for Hermes agents — each todo runs as a worker in its own git worktree under guarded state transitions, with prompt drafting, call tracing, /todo verbs and a TUI pane (claude-todo, ported to Hermes)
 author: Declan Shanaghy
 homepage: https://github.com/declanshanaghy/hermes-todo

@@ -74,6 +74,7 @@ def todo_add(args: dict, **kwargs) -> str:
     try:
         store = get_store()
         dir = list_dir()
+        store.touch_session(dir, str(kwargs.get("session_id") or ""))
         n = store.add(dir, title)
         key = None
         if LLM is not None:
@@ -95,6 +96,7 @@ def todo_backlog(args: dict, **kwargs) -> str:
     try:
         store = get_store()
         dir = list_dir()
+        store.touch_session(dir, str(kwargs.get("session_id") or ""))
         store.expire(dir, db.done_ttl_minutes())
         todos = store.todos(dir)
         return _answer(
@@ -122,6 +124,7 @@ def todo_update(args: dict, **kwargs) -> str:
     try:
         store = get_store()
         dir = list_dir()
+        store.touch_session(dir, me)
         result = store.update(dir, n, changes, me=me)
         if "error" in result:
             return _answer({"error": result["error"]})
