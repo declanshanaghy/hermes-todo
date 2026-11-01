@@ -1,0 +1,11 @@
+name: hermes-todo
+version: 0.1.0
+description: Per-repo todo backlog for Hermes agents — todos run in their own git worktree under guarded state transitions (claude-todo, ported to Hermes)
+author: Declan Shanaghy
+homepage: https://github.com/declanshanaghy/hermes-todo
+license: MIT
+tags: [automation, tasks, git]
+provides_tools:
+  - todo_add
+  - todo_backlog
+  - todo_update

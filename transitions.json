@@ -1,0 +1,35 @@
+{
+  "about": "Every Todo.status move the code may make: the one table of allowed moves. The guard (Store.update in db.py, and every status write goes through it) reads this table directly — Python imports JSON, so there is no mirror to regenerate. [*] is before the todo exists (from) or after it is removed (to). A write that keeps the status is never a move.",
+  "transitions": [
+    { "from": "[*]", "to": "pending", "by": "＋ add", "at": "tools.todo_add" },
+    { "from": "pending", "to": "prompting", "by": "drafter spawned (＋ add, ✎ Rename)", "at": "drafting (phase 2)" },
+    { "from": "prompting", "to": "prompting", "by": "✎ Rename", "at": "drafting (phase 2)" },
+    { "from": "prompting", "to": "pending", "by": "drafts stored / drafter ended / sync tick", "at": "drafting (phase 2)" },
+
+    { "from": "pending", "to": "drafting", "by": "▶ Exec · ⚡ Auto · 🔥 Fire · /todo exec", "at": "exec (phase 3)" },
+    { "from": "stopped", "to": "drafting", "by": "✨ Refine · ↻ Restart · ⏵ Resume · /todo exec, refine, restart, resume", "at": "exec (phase 3)" },
+    { "from": "failed", "to": "drafting", "by": "✨ Refine · ↻ Restart · ⏵ Resume · /todo exec, refine, restart, resume", "at": "exec (phase 3)" },
+    { "from": "paused", "to": "drafting", "by": "⏵ Resume · /todo resume (▶ Exec if it never ran)", "at": "exec (phase 3)" },
+
+    { "from": "drafting", "to": "planning", "by": "worker reports multi-step", "at": "todo_update" },
+    { "from": "drafting", "to": "running", "by": "worker reports simple or resumed / agent launched", "at": "todo_update; linking (phase 4)" },
+    { "from": "planning", "to": "running", "by": "plan approved / workflow launched", "at": "todo_update; linking (phase 4)" },
+
+    { "from": "running", "to": "paused", "by": "⏸ Pause · /todo pause", "at": "control (phase 3)" },
+    { "from": "running", "to": "stopped", "by": "■ Stop · /todo stop · agent aborted · ⇄ Takeover · worker reports stopped", "at": "control (phase 3); todo_update" },
+    { "from": "paused", "to": "stopped", "by": "■ Stop · /todo stop · ⇄ Takeover · worker reports stopped", "at": "control (phase 3); todo_update" },
+    { "from": "running", "to": "done", "by": "worker reports landed", "at": "todo_update" },
+    { "from": "running", "to": "failed", "by": "lone agent refused / worker reports not landed", "at": "tracing (phase 4); todo_update" },
+
+    { "from": "drafting", "to": "pending", "by": "↺ Reset (never ran) · question dismissed · prompt refused", "at": "exec (phase 3)" },
+    { "from": "planning", "to": "pending", "by": "↺ Reset (never ran) · question dismissed", "at": "exec (phase 3)" },
+    { "from": "drafting", "to": "stopped", "by": "↺ Reset (has run) · ⇄ Takeover · prompt refused · resume started nothing", "at": "exec (phase 3)" },
+    { "from": "planning", "to": "stopped", "by": "↺ Reset (has run) · ⇄ Takeover", "at": "exec (phase 3)" },
+    { "from": "drafting", "to": "failed", "by": "prompt refused · resume started nothing", "at": "exec (phase 3)" },
+    { "from": "drafting", "to": "paused", "by": "prompt refused · resume started nothing", "at": "exec (phase 3)" },
+
+    { "from": "prompting", "to": "[*]", "by": "✕ Delete · /todo delete", "at": "Store.delete" },
+    { "from": "pending", "to": "[*]", "by": "✕ Delete · /todo delete (never ran)", "at": "Store.delete" },
+    { "from": "done", "to": "[*]", "by": "expires", "at": "Store.expire" }
+  ]
+}
