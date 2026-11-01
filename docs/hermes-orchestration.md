@@ -88,7 +88,7 @@ discipline the hermes-todo port enforces:
 ```mermaid
 flowchart TD
   A[Worktree branch, commit as you go] --> V[Run the project's checks]
-  V --> S[Squash to one commit, "Todo: #N"] --> R[Rebase onto origin/main]
+  V --> S["Squash to one commit — Todo: #N"] --> R[Rebase onto origin/main]
   R -->|conflict| X{Confident resolve?}
   X -->|no| F[abort, push nothing, todo failed — branch kept]
   X -->|yes| V2[Re-run checks on the rebased commit] --> P[push HEAD:main, never force]
