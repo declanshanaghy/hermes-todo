@@ -1,6 +1,6 @@
 name: hermes-todo
-version: 0.1.0
-description: Per-repo todo backlog for Hermes agents — todos run in their own git worktree under guarded state transitions (claude-todo, ported to Hermes)
+version: 0.2.0
+description: Per-repo todo backlog for Hermes agents — each todo runs as a worker in its own git worktree under guarded state transitions, with prompt drafting, call tracing, /todo verbs and a TUI pane (claude-todo, ported to Hermes)
 author: Declan Shanaghy
 homepage: https://github.com/declanshanaghy/hermes-todo
 license: MIT
@@ -9,3 +9,23 @@ provides_tools:
   - todo_add
   - todo_backlog
   - todo_update
+provides_hooks:
+  - subagent_start
+  - subagent_stop
+  - post_tool_call
+  - on_session_start
+  - on_session_end
+  - on_session_finalize
+  - on_session_reset
+config_schema:
+  allow_gateway_injection:
+    type: bool
+    default: false
+    description: >-
+      Let /todo hand a worker's protocol prompt to the session's own agent
+      as a queued turn when no in-process worker can be launched (an idle
+      session). Hermes requires this consent for gateway injection.
+  done_ttl_minutes:
+    type: float
+    default: 5.0
+    description: How long a done todo stays in the list (minutes); 0 keeps it.

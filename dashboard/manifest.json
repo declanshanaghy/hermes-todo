@@ -1,0 +1,5 @@
+{
+  "name": "hermes-todo",
+  "api": "plugin_api.py",
+  "description": "Backend routes for the hermes-todo pane: the backlog, chips per todo, and the pane's actions. Mounted at /api/plugins/hermes-todo/ by hermes dashboard and the Desktop app."
+}

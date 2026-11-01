@@ -102,16 +102,16 @@ the same primitives:
 
 | claude-todo feature | Hermes primitive it rides |
 |---|---|
-| per-repo SQLite backlog, rev-guarded writes | `plugin_db` store (phase 1, done) |
-| 9-state machine, guarded transitions | `transitions.json` + guard (phase 1, done) |
-| drafter agent per add | `ctx.llm.complete_structured` (phase 2) |
-| worker per todo in a worktree | `ctx.subagent_lifecycle.launch` + `working_directory` (phase 3) |
-| per-call tracing | `pre/post_tool_call` hooks, process-global, fire in children (phase 4) |
+| per-repo SQLite backlog, rev-guarded writes | `plugin_db` store (shipped, phase 1) |
+| 9-state machine, guarded transitions | `transitions.json` + guard (shipped, phase 1) |
+| drafter agent per add | `ctx.llm.complete_structured` (shipped, phase 2) |
+| worker per todo in a worktree | `ctx.subagent_lifecycle.launch` + `working_directory` (shipped, phase 3) |
+| per-call tracing | `pre/post_tool_call` hooks, process-global, fire in children (shipped, phase 4) |
 | exec from an idle session | `ctx.inject_message` (consented `allow_gateway_injection`) |
 | toasts back into the chat | `ctx.post_message` |
-| the pane | TUI widget / Desktop pane (phase 5 — data bridge still open) |
+| the pane | dashboard route (`dashboard/plugin_api.py`) + TUI widgets in `widgets/` (shipped, phase 5 — the TUI-mode data seam stays open, below) |
 
-## 5. The pane — how the TUI integration and display work (phase 5)
+## 5. The pane — how the TUI integration and display work
 
 hermes-todo's display is a **TUI widget app**: a plain `.mjs` file dropped
 in `~/.hermes/tui-widgets/`, hot-reloaded on save, no build step, no JSX
@@ -211,5 +211,8 @@ decided before phase 5 starts, not during.
 is silently skipped — check `~/.hermes/logs/tui_gateway_crash.log` if a
 widget never appears.
 
-Until it ships, kanban + `delegate_task` is the closest stock workflow, and
-cron covers the "run the backlog every morning" pattern.
+hermes-todo ships all of this (the plugin itself, the `/todo` verbs, the
+dashboard route and the two widgets); the one seam still open is the widget
+data path in plain `hermes --tui` mode, above. Until the upstream route
+lands, kanban + `delegate_task` remain the stock fallback for surfaces the
+pane can't reach.

@@ -16,7 +16,8 @@ def _call(handler, args, **kwargs):
 
 def test_add_stores_a_title_only_todo(wired):
     res = _call(tools.todo_add, {"title": "Fix the login redirect loop"}, session_id="s1")
-    assert res == {"ok": True, "added": 1, "title": "Fix the login redirect loop", "status": "pending"}
+    assert res == {"ok": True, "added": 1, "title": "Fix the login redirect loop",
+                   "status": "pending", "drafting": False}
     assert _call(tools.todo_backlog, {})["todos"][0]["status"] == "pending"
 
 

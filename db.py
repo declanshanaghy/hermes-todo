@@ -8,13 +8,14 @@ Every todo write carries the list's revision it was computed from:
 
 If another session wrote first, the guarded UPDATE matches no row, the
 transaction rolls back, the list is re-read and the same edit is applied
-again, up to five tries. Agents, calls and turns (phase 4) are keyed by id
-and only ever written by the session that recorded them, so they will need
-no revision check.
+again, up to five tries. Agents and calls are keyed by id and only ever
+written by the session that recorded them, so they are written through,
+with no revision check.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import time
@@ -28,11 +29,13 @@ _TODO_FIELDS = (
     "prompt",
     "mode",
     "task_id",
+    "handle",
     "run_id",
     "summary",
     "branch",
     "landed",
     "owner",
+    "draft_key",
 )
 
 _SCHEMA = """
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS todos (
   prompt     TEXT,
   mode       TEXT,
   task_id    TEXT,
+  handle     TEXT,
   run_id     TEXT,
   summary    TEXT,
   branch     TEXT,
@@ -56,12 +60,45 @@ CREATE TABLE IF NOT EXISTS todos (
   has_run    INTEGER NOT NULL DEFAULT 0,
   owner      TEXT,
   drafts     TEXT,
+  draft_key  TEXT,
   created_at REAL NOT NULL,
   updated_at REAL NOT NULL,
   PRIMARY KEY (dir, n)
 );
 CREATE INDEX IF NOT EXISTS todos_dir ON todos (dir);
+CREATE TABLE IF NOT EXISTS agents (
+  child_session_id TEXT PRIMARY KEY,
+  dir      TEXT NOT NULL,
+  n        INTEGER NOT NULL,
+  kind     TEXT NOT NULL DEFAULT 'agent',
+  status   TEXT NOT NULL DEFAULT 'running',
+  started_at REAL NOT NULL,
+  ended_at  REAL,
+  summary   TEXT
+);
+CREATE INDEX IF NOT EXISTS agents_todo ON agents (dir, n);
+CREATE TABLE IF NOT EXISTS calls (
+  id         TEXT PRIMARY KEY,
+  agent_id   TEXT NOT NULL,
+  tool       TEXT NOT NULL,
+  args       TEXT,
+  result     TEXT,
+  state      TEXT NOT NULL,
+  ms         REAL,
+  started_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS calls_agent ON calls (agent_id, started_at);
+CREATE TABLE IF NOT EXISTS session_ends (
+  session_id TEXT PRIMARY KEY,
+  ended_at   REAL NOT NULL
+);
 """
+
+# Columns added after 0.1.0, migrated in place for an existing database.
+_MIGRATIONS = (
+    ("todos", "handle", "TEXT"),
+    ("todos", "draft_key", "TEXT"),
+)
 
 
 class Conflict(Exception):
@@ -79,7 +116,30 @@ class GiveUp(Exception):
 def _row_to_todo(row: sqlite3.Row) -> dict[str, Any]:
     todo = dict(row)
     todo["has_run"] = bool(todo["has_run"])
+    if todo.get("drafts"):
+        try:
+            todo["drafts"] = json.loads(todo["drafts"])
+        except (ValueError, TypeError):
+            todo["drafts"] = None
+    else:
+        todo["drafts"] = None
+    if todo.get("handle"):
+        try:
+            todo["handle"] = json.loads(todo["handle"])
+        except (ValueError, TypeError):
+            todo["handle"] = None
     return todo
+
+
+def _public(todo: dict[str, Any]) -> dict[str, Any]:
+    """The fields a todo answer or the pane's route shows."""
+    return {
+        k: todo.get(k)
+        for k in (
+            "n", "title", "status", "prompt", "mode", "task_id", "run_id",
+            "summary", "branch", "landed", "has_run", "owner", "drafts",
+        )
+    }
 
 
 class Store:
@@ -96,6 +156,11 @@ class Store:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
         conn.executescript(_SCHEMA)
+        for table, column, decl in _MIGRATIONS:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            except sqlite3.OperationalError:
+                pass  # already there
 
     # ---------- the guarded write ----------
 
@@ -141,6 +206,22 @@ class Store:
             raise
         row = self.conn.execute("SELECT rev FROM lists WHERE dir = ?", (dir,)).fetchone()
         return row["rev"]
+
+    @property
+    def path(self) -> str | None:
+        """The database file's path, for reopening it on another thread."""
+        try:
+            row = self.conn.execute("PRAGMA database_list").fetchone()
+            return row["file"] if row and row["file"] else None
+        except sqlite3.Error:
+            return None
+
+    def reopen(self) -> "Store | None":
+        """A fresh Store on the same file, for a thread of our own."""
+        path = self.path
+        if not path:
+            return None
+        return Store(sqlite3.connect(path), tries=self.tries)
 
     # ---------- reads ----------
 
@@ -209,7 +290,10 @@ class Store:
             for field in _TODO_FIELDS:
                 if field in changes:
                     sets.append(f"{field} = ?")
-                    vals.append(changes[field])
+                    value = changes[field]
+                    if field == "handle" and isinstance(value, dict):
+                        value = json.dumps(value)
+                    vals.append(value)
             if new_status != old_status:
                 sets.append("status = ?")
                 vals.append(new_status)
@@ -230,7 +314,7 @@ class Store:
                     "SELECT * FROM todos WHERE dir = ? AND n = ?", (dir, n)
                 ).fetchone()
             )
-            return {"ok": True, "todo": todo, "me": me, "rev": rev}
+            return {"ok": True, "todo": _public(todo), "me": me, "rev": rev}
 
         return self.write(dir, op)
 
@@ -268,6 +352,169 @@ class Store:
             ]
             for n in gone:
                 conn.execute("DELETE FROM todos WHERE dir = ? AND n = ?", (dir, n))
+            return gone
+
+        return self.write(dir, op)
+
+    # ---------- the drafter (phase 2) ----------
+
+    def start_drafting(self, dir: str, n: int) -> str | None:
+        """Turn a pending or prompting todo prompting under a fresh draft
+        key (a rename relaunches the drafter this way); the key is what
+        makes a late drafter's answer stale."""
+        key = f"{n}:{time.time_ns()}"
+
+        def op(conn: sqlite3.Connection, rev: int) -> str | None:
+            row = conn.execute(
+                "SELECT status FROM todos WHERE dir = ? AND n = ?", (dir, n)
+            ).fetchone()
+            if row is None:
+                return None
+            if not transitions.can_move(row["status"], "prompting"):
+                return None
+            conn.execute(
+                "UPDATE todos SET status = 'prompting', draft_key = ?, drafts = NULL,"
+                " updated_at = ? WHERE dir = ? AND n = ?",
+                (key, time.time(), dir, n),
+            )
+            return key
+
+        return self.write(dir, op)
+
+    def set_drafts(
+        self, dir: str, n: int, key: str, drafts: list[dict[str, str]]
+    ) -> dict[str, Any]:
+        """Store a drafter's answer under its own launch's key. An older
+        key's drafts are stale and refused. Storing them turns a prompting
+        todo pending; a todo that moved on keeps its status."""
+
+        clean = [
+            {"label": str(d.get("label", ""))[:64], "prompt": str(d.get("prompt", ""))}
+            for d in drafts
+            if d.get("label") and d.get("prompt")
+        ][:3]
+
+        def op(conn: sqlite3.Connection, rev: int) -> dict[str, Any]:
+            row = conn.execute(
+                "SELECT status, draft_key FROM todos WHERE dir = ? AND n = ?", (dir, n)
+            ).fetchone()
+            if row is None:
+                return {"stale": True, "error": f"no todo #{n} in this list"}
+            if row["draft_key"] != key:
+                return {"stale": True}  # a rename relaunched the drafter
+            sets = "drafts = ?, updated_at = ?"
+            vals: list[Any] = [json.dumps(clean), time.time()]
+            if row["status"] == "prompting":
+                sets += ", status = 'pending'"
+            conn.execute(
+                f"UPDATE todos SET {sets} WHERE dir = ? AND n = ?", [*vals, dir, n]
+            )
+            return {"ok": True, "n": n, "drafts": len(clean)}
+
+        return self.write(dir, op)
+
+    # ---------- agents, calls and sessions (phases 3-4) ----------
+
+    def link_agent(
+        self, dir: str, n: int, child_session_id: str, kind: str = "agent"
+    ) -> None:
+        """Record that a child session works for todo #n (written through)."""
+        self.conn.execute(
+            "INSERT OR REPLACE INTO agents (child_session_id, dir, n, kind, status, started_at)"
+            " VALUES (?, ?, ?, ?, 'running', ?)",
+            (child_session_id, dir, n, kind, time.time()),
+        )
+
+    def agent_of(self, child_session_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT * FROM agents WHERE child_session_id = ?", (child_session_id,)
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def agents_for(self, dir: str, n: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM agents WHERE dir = ? AND n = ? ORDER BY started_at", (dir, n)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def end_agent(self, child_session_id: str, status: str, summary: str | None) -> None:
+        self.conn.execute(
+            "UPDATE agents SET status = ?, ended_at = ?, summary = ? WHERE child_session_id = ?",
+            (status, time.time(), (summary or "")[:2000] or None, child_session_id),
+        )
+
+    def record_call(
+        self,
+        call_id: str,
+        agent_id: str,
+        tool: str,
+        args: str | None,
+        result: str | None,
+        state: str,
+        ms: float | None,
+    ) -> None:
+        """A child's tool call, with its input and response (written through)."""
+        self.conn.execute(
+            "INSERT OR REPLACE INTO calls (id, agent_id, tool, args, result, state, ms, started_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                call_id or f"{agent_id}:{time.time_ns()}",
+                agent_id,
+                tool,
+                (args or "")[:8000] or None,
+                (result or "")[:12000] or None,
+                state,
+                ms,
+                time.time(),
+            ),
+        )
+
+    def calls_for(self, agent_id: str, limit: int = 200) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM calls WHERE agent_id = ? ORDER BY started_at DESC LIMIT ?",
+            (agent_id, limit),
+        ).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+    def note_session_end(self, session_id: str) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO session_ends (session_id, ended_at) VALUES (?, ?)",
+            (session_id, time.time()),
+        )
+
+    def ended_sessions(self) -> set[str]:
+        rows = self.conn.execute("SELECT session_id FROM session_ends").fetchall()
+        return {r["session_id"] for r in rows}
+
+    def reclaim_stale(self, dir: str, me: str) -> list[int]:
+        """Take back todos whose owner session has ended (the kanban-style
+        stale reclaim): each goes stopped, keeping its run and worktree."""
+
+        def op(conn: sqlite3.Connection, rev: int) -> list[int]:
+            rows = conn.execute(
+                "SELECT n, status, owner FROM todos WHERE dir = ?", (dir,)
+            ).fetchall()
+            gone: list[int] = []
+            for r in rows:
+                if r["status"] not in ("drafting", "planning", "running", "paused"):
+                    continue
+                owner = r["owner"]
+                if not owner or owner == me:
+                    continue
+                ended = conn.execute(
+                    "SELECT 1 FROM session_ends WHERE session_id = ?", (owner,)
+                ).fetchone()
+                if ended is None:
+                    continue
+                if not transitions.can_move(r["status"], "stopped"):
+                    continue
+                conn.execute(
+                    "UPDATE todos SET status = 'stopped',"
+                    " summary = COALESCE(summary, 'its session ended; the run is kept'),"
+                    " updated_at = ? WHERE dir = ? AND n = ?",
+                    (time.time(), dir, r["n"]),
+                )
+                gone.append(r["n"])
             return gone
 
         return self.write(dir, op)

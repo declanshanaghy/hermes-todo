@@ -3,6 +3,10 @@
 Rules: receive ``args`` (dict), accept ``**kwargs`` (Hermes injects
 ``session_id`` and friends additively), never raise, and always answer
 with a JSON string, errors included.
+
+``LLM`` is the session's ctx.llm facade, captured at register() — the
+drafter's lane. Without it (no LLM lane available), a todo stays pending
+and Exec drafts its prompt in the chat instead.
 """
 
 from __future__ import annotations
@@ -12,9 +16,10 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from . import db
+from . import db, drafter
 
 _STORE: db.Store | None = None
+LLM: Any = None  # set at register(); the drafter's lane
 
 
 def get_store() -> db.Store:
@@ -61,18 +66,32 @@ def _answer(payload: dict[str, Any]) -> str:
 
 
 def todo_add(args: dict, **kwargs) -> str:
+    """Add a todo, and draft its prompts in the background while the LLM
+    lane is up (the todo is prompting until they're stored)."""
     title = (args.get("title") or "").strip()
     if not title:
         return _answer({"error": "usage: todo_add {\"title\": \"…\"}"})
     try:
         store = get_store()
-        n = store.add(list_dir(), title)
-        return _answer({"ok": True, "added": n, "title": title, "status": "pending"})
+        dir = list_dir()
+        n = store.add(dir, title)
+        key = None
+        if LLM is not None:
+            key = store.start_drafting(dir, n)
+            if key:
+                others = [t["title"] for t in store.todos(dir) if t["n"] != n]
+                drafter.schedule(dir, n, title, key, others)
+        todo = store.get(dir, n)
+        return _answer({
+            "ok": True, "added": n, "title": title,
+            "status": todo["status"], "drafting": key is not None,
+        })
     except Exception as exc:  # never raise out of a tool
         return _answer({"error": f"add failed: {exc}"})
 
 
 def todo_backlog(args: dict, **kwargs) -> str:
+    """The repo's backlog as JSON, after expiring done todos."""
     try:
         store = get_store()
         dir = list_dir()
@@ -82,23 +101,7 @@ def todo_backlog(args: dict, **kwargs) -> str:
             {
                 "dir": dir,
                 "count": len(todos),
-                "todos": [
-                    {
-                        "n": t["n"],
-                        "title": t["title"],
-                        "status": t["status"],
-                        "prompt": t["prompt"],
-                        "mode": t["mode"],
-                        "task_id": t["task_id"],
-                        "run_id": t["run_id"],
-                        "summary": t["summary"],
-                        "branch": t["branch"],
-                        "landed": t["landed"],
-                        "has_run": t["has_run"],
-                        "owner": t["owner"],
-                    }
-                    for t in todos
-                ],
+                "todos": [db._public(t) for t in todos],
             }
         )
     except Exception as exc:
@@ -106,6 +109,8 @@ def todo_backlog(args: dict, **kwargs) -> str:
 
 
 def todo_update(args: dict, **kwargs) -> str:
+    """Report a todo's status and run details, through the guard. A title
+    change renames: the drafts are cleared and drafted again."""
     try:
         n = int(args.get("n", 0))
     except (TypeError, ValueError):
@@ -116,9 +121,20 @@ def todo_update(args: dict, **kwargs) -> str:
     me = str(kwargs.get("session_id") or "")
     try:
         store = get_store()
-        result = store.update(list_dir(), n, changes, me=me)
+        dir = list_dir()
+        result = store.update(dir, n, changes, me=me)
         if "error" in result:
             return _answer({"error": result["error"]})
+        if "title" in changes and LLM is not None:
+            status = (result.get("todo") or {}).get("status")
+            if status in ("pending", "prompting"):
+                # A rename clears the drafts and drafts again (R5); the old
+                # drafter's late answer is stale under the new key.
+                key = store.start_drafting(dir, n)
+                if key:
+                    others = [t["title"] for t in store.todos(dir) if t["n"] != n]
+                    drafter.schedule(dir, n, changes["title"], key, others)
+                    result["renamed"] = "drafting prompts again"
         return _answer(result)
     except ValueError as exc:
         return _answer({"error": str(exc)})

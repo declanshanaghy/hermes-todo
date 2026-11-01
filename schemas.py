@@ -19,10 +19,10 @@ TODO_ADD = {
     },
 }
 
-TODO_LIST = {
+TODO_BACKLOG = {
     "name": "todo_backlog",
     "description": (
-        "List this repo's todo backlog as JSON: each todo's number, title, "
+        "The repo's todo backlog as JSON: each todo's number, title, "
         "status (prompting, pending, drafting, planning, running, paused, "
         "stopped, done, failed), prompt, summary and run details. "
         "Use when the user asks what's queued or where a todo stands."
