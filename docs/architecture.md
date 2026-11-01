@@ -44,8 +44,9 @@ sequenceDiagram
 
 A launch from an idle session (no active agent turn) fails closed in Hermes;
 the runner then hands the same protocol prompt to the session's own agent as
-a queued user turn (`ctx.inject_message`, consented via
-`allow_gateway_injection`). If neither works, the todo goes back where it
+a queued user turn (`ctx.inject_message`, consented via the
+`plugins.entries.hermes-todo.allow_gateway_injection` flag — flat on the
+entry, where Hermes' gate reads it). If neither works, the todo goes back where it
 was and the error says so. Pause and Stop cancel the worker cooperatively;
 Resume launches a fresh worker on the kept worktree, briefed with the run's
 recorded calls. A worker that ends without reporting is settled by

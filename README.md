@@ -60,12 +60,19 @@ The workers report with the `todo_update` tool (the goal text tells them
 to), so a run settles itself: `done` with the landed hash, or `failed`
 saying why and where the work is.
 
-### Config (plugins.entries.hermes-todo.settings)
+### Config
 
-| Key | Default | Does |
-|---|---|---|
-| `allow_gateway_injection` | `false` | Let `/todo exec` hand the protocol prompt to the session's own agent as a queued turn when no in-process worker can be launched (an idle session). Hermes requires this consent for gateway injection. |
-| `done_ttl_minutes` | `5.0` | How long a done todo stays in the list; `0` keeps it. `HERMES_TODO_DONE_TTL_MINUTES` overrides both. |
+The one consent, set **flat on the plugin entry** (that's where Hermes'
+injection gate reads it — not under `settings`):
+
+```bash
+hermes config set plugins.entries.hermes-todo.allow_gateway_injection true
+```
+
+It lets `/todo exec` hand the protocol prompt to the session's own agent
+as a queued turn when no in-process worker can be launched (a typed
+command in an idle session). A done todo leaves the list after 5 minutes;
+`HERMES_TODO_DONE_TTL_MINUTES` overrides (0 keeps).
 
 The database lives at `<hermes home>/plugin-data/hermes-todo/data.db`,
 one per profile, surviving updates and removals.
