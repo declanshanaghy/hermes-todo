@@ -142,7 +142,7 @@ transcript; the status bar keeps the same counts while the card is closed:
 
 ![The ambient rail card docked in the TUI's right rail, with the live status counts](assets/tui-rail-card.png)
 
-**The pane** — modal, opened by `/todo`; it shows the tree with the focus
+**The pane** — modal, opened by `/todo-pane` (the widget id is its own slash command; the plugin's `/todo` verbs keep their name); it shows the tree with the focus
 ring, one-row chip sets per state, a Stop confirmation (question line above
 its one row of choices, the ring on the safe choice), and the hidden-view
 footer:

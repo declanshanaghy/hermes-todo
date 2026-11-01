@@ -1,6 +1,6 @@
-// hermes-todo — the pane (/todo opens it): the tree with its chips, a
+// hermes-todo — the pane (/todo-pane opens it): the tree with its chips, a
 // details view over the recorded calls, Esc to close. Install:
-//   cp widgets/todo.mjs ~/.hermes/tui-widgets/   then  /todo
+//   cp widgets/todo.mjs ~/.hermes/tui-widgets/   then  /todo-pane
 //
 // The chips are what the route says each row offers (the same offers the
 // /todo verbs read), so the pane and the verbs can't drift. A run verb
@@ -67,7 +67,7 @@ export default function register(sdk) {
   }
 
   defineWidgetApp({
-    id: 'todo',
+    id: 'todo-pane',
     mode: 'modal',
     help: 'the todo pane: the tree, its chips, the recorded calls',
 
@@ -180,5 +180,5 @@ export default function register(sdk) {
     return h(Overlay, {}, h(Dialog, { width: 76 }, ...lines))
   }
 
-  const app = { id: 'todo' }
+  const app = { id: 'todo-pane' }
 }

@@ -73,7 +73,7 @@ one per profile, surviving updates and removals.
 ### The pane
 
 Two TUI widgets in `widgets/` (copy them to `~/.hermes/tui-widgets/`):
-`/todo` opens the modal pane (the tree with its chips, a details view over
+`/todo-pane` opens the modal pane (the tree with its chips, a details view over
 the recorded calls), `/todo-card` docks the ambient rail card. They fetch
 the plugin's dashboard route (`dashboard/plugin_api.py`, mounted at
 `/api/plugins/hermes-todo/`), so a dashboard server or the Desktop app
