@@ -27,7 +27,11 @@ tools.py          tool handlers — always answer JSON, never raise
 db.py             the store: WAL, lists keyed by repo, revision guard
 transitions.json  the one table of moves a todo may make
 transitions.py    the guard: can_move, moves_from, move_refusal
-docs/             architecture.md, test-cases.md (the ported spec)
+docs/             architecture.md, test-cases.md (the ported spec),
+                  hermes-orchestration.md (the field guide, with TUI mockups)
+docs/mockups/     the pane's HTML mockups — change them with the pane
+docs/assets/      the rendered mockup PNGs embedded in the docs
+scripts/          render-mockups.sh (headless Chrome, 2× scale)
 tests/            pytest suite (one test per test-cases row)
 ```
 

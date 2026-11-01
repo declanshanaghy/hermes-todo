@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hermes-todo — ambient rail card (mockup)</title>
+<style>
+  :root{
+    --bg:#0d0f14; --pane:#12151c; --border:#262b36;
+    --text:#d8dbe2; --dim:#7c828e; --faint:#4a4f5a;
+    /* the todo palette, 30° apart, from claude-todo hooks/marks.tsx */
+    --prompting:#5555f1; --pending:#8b919c; --drafting:#55a3f1; --planning:#55f1a3;
+    --running:#55f155; --paused:#f1f155; --stopped:#ff0000; --done:#a355f1; --failed:#f1a355;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg);}
+  body{
+    font:15px/1.5 "SF Mono","Menlo","Consolas",monospace;
+    color:var(--text); width:1180px; height:760px; overflow:hidden;
+    display:grid; grid-template-columns:1fr 364px; grid-template-rows:1fr 30px;
+  }
+  .transcript{padding:22px 20px; overflow:hidden;}
+  .transcript .prompt{color:#e6e8ee; margin-bottom:14px;}
+  .transcript .prompt .chevron{color:var(--faint);}
+  .transcript .answer{color:var(--dim); white-space:pre-wrap;}
+  .transcript .answer b{color:var(--text); font-weight:600;}
+  .transcript .tool{color:var(--faint); margin:6px 0;}
+  .transcript .tool .tick{color:#55f155;}
+  .rail{
+    border-left:1px solid var(--border); padding:22px 16px;
+    display:flex; flex-direction:column; align-items:flex-end; gap:0;
+  }
+  /* the card itself: Dialog, explicit width (~44 cols), constant row count */
+  .card{
+    width:344px; background:var(--pane); border:1px solid var(--border);
+    padding:8px 12px; line-height:1.55; font-size:15px;
+  }
+  .card .title{color:var(--text); font-weight:600;}
+  .card .row{display:flex; gap:10px; white-space:nowrap; overflow:hidden;}
+  .card .row .fill{flex:1;}
+  .card .counts span{margin-right:9px;}
+  .card .more{color:var(--faint);}
+  .m-running{color:var(--running);} .m-prompting{color:var(--prompting);}
+  .m-pending{color:var(--pending);} .m-failed{color:var(--failed);}
+  .m-paused{color:var(--paused);} .m-stopped{color:var(--stopped);}
+  .m-done{color:var(--done);}
+  .statusbar{
+    grid-column:1 / -1; border-top:1px solid var(--border);
+    display:flex; align-items:center; padding:0 14px; gap:14px;
+    color:var(--dim); font-size:13.5px; background:#0b0d11;
+  }
+  .statusbar .model{color:var(--text);}
+  .statusbar .todos{margin-left:auto;}
+</style>
+</head>
+<body>
+  <div class="transcript">
+    <div class="prompt"><span class="chevron">❯</span> add a todo: port the drafter to ctx.llm</div>
+    <div class="answer"><b>● #7 added</b> — pending, drafts on the way</div>
+    <div class="tool">⏺ todo_add <span class="tick">ok</span> 2ms</div>
+    <div class="tool">⏺ todo_backlog <span class="tick">ok</span> 3ms</div>
+    <div class="prompt"><span class="chevron">❯</span> what's on the board?</div>
+    <div class="answer">Two pending, one running in its worktree, one paused — the card on the right keeps the live summary.</div>
+  </div>
+
+  <div class="rail">
+    <div class="card">
+      <div class="row counts">
+        <span class="title">Todos</span>
+        <span class="fill"></span>
+        <span class="m-running">▶1</span><span class="m-prompting">◔1</span><span class="m-pending">●2</span><span class="m-failed">✗1</span><span class="m-paused">⏸1</span><span class="m-stopped">■1</span>
+      </div>
+      <div class="row m-pending"><span>● 7</span><span>port the drafter to ctx.llm</span></div>
+      <div class="row m-pending"><span>● 5</span><span>fix the rev-guard retry</span></div>
+      <div class="row m-paused"><span>⏸ 2</span><span>resume the paused worker</span></div>
+      <div class="row more"><span>last:</span><span class="m-done">✓ #4 landed abc1234</span></div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span class="model">z-ai/glm-5.3</span>
+    <span>hermes · claude-todo</span>
+    <span class="todos m-running">▶1</span><span class="todos m-prompting">◔1</span><span class="todos m-pending">●2</span><span class="todos m-failed">✗1</span><span class="todos m-paused">⏸1</span><span class="todos m-stopped">■1</span>
+  </div>
+</body>
+</html>

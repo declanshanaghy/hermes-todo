@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hermes-todo — the pane (modal, mockup)</title>
+<style>
+  :root{
+    --bg:#0d0f14; --pane:#12151c; --border:#262b36;
+    --text:#d8dbe2; --dim:#7c828e; --faint:#4a4f5a; --rule:#232733;
+    --prompting:#5555f1; --pending:#8b919c; --drafting:#55a3f1; --planning:#55f1a3;
+    --running:#55f155; --running-focus:#aaf8aa; --paused:#f1f155; --stopped:#ff0000;
+    --done:#a355f1; --failed:#f1a355;
+    --danger:#f155a3; --details:#55f1f1; --edit:#a3f155; --stay:#f155f1;
+    --danger-focus:#f8aad1; --details-focus:#aaf8f8; --edit-focus:#d1f8aa; --stay-focus:#f8aaf8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg);}
+  body{
+    font:15px/1.5 "SF Mono","Menlo","Consolas",monospace;
+    color:var(--text); width:1180px; height:840px; overflow:hidden; position:relative;
+  }
+  .behind{position:absolute; inset:0; padding:22px 20px; filter:brightness(.45) saturate(.7);}
+  .behind .prompt{color:#e6e8ee; margin-bottom:14px;}
+  .behind .chevron{color:var(--faint);}
+  .behind .answer{color:var(--dim); white-space:pre-wrap;}
+  .overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(8,10,13,.55);
+  }
+  .pane{
+    width:660px; background:var(--pane); border:1px solid var(--border);
+    padding:10px 14px 12px; line-height:1.5;
+  }
+  .row{display:flex; align-items:center; white-space:nowrap; overflow:hidden; gap:8px;}
+  .row .fill{flex:1;}
+  .hdr .count{color:var(--dim); font-weight:400;}
+  .hdr .word{font-weight:600;}
+  .toggle{margin-right:9px;}
+  .hidden-toggle{opacity:.55; text-decoration:line-through;}
+  .fire{
+    margin-left:12px; background:var(--running); color:#0d0f14; font-weight:600;
+    padding:1px 8px; border-radius:3px;
+  }
+  .add{color:var(--dim); margin-top:6px;}
+  .add .plus{color:var(--text);}
+  .rule-double{color:var(--rule); letter-spacing:0; overflow:hidden; white-space:nowrap; margin-top:4px;}
+  .rule-single{color:var(--rule); overflow:hidden; white-space:nowrap; margin:0;}
+  .todo{margin-top:2px;}
+  .todo .num{color:inherit;}
+  .todo .gap{flex:1; color:var(--rule); overflow:hidden; height:1em; min-width:14px;}
+  .todo .mark{font-weight:600;}
+  .t-running{color:var(--running);} .t-pending{color:var(--pending);} .t-paused{color:var(--paused);}
+  .prompt{color:var(--text); margin-top:1px; white-space:nowrap; overflow:hidden;}
+  .prompt .cut{color:var(--faint);}
+  .question{color:var(--text); margin-top:1px;}
+  .chips{margin-top:3px;}
+  .chip{
+    display:inline-block; background:var(--tone,var(--stay)); color:#0d0f14; font-weight:600;
+    padding:1px 8px; border-radius:3px; margin-right:4px;
+  }
+  .chip.focus{background:var(--tone-focus,var(--stay-focus));}
+  .tone-running{--tone:var(--running); --tone-focus:var(--running-focus);}
+  .tone-paused{--tone:var(--paused); --tone-focus:#f8f8aa;}
+  .tone-stopped{--tone:var(--stopped); --tone-focus:#ff8080;}
+  .tone-danger{--tone:var(--danger); --tone-focus:var(--danger-focus);}
+  .tone-details{--tone:var(--details); --tone-focus:var(--details-focus);}
+  .tone-edit{--tone:var(--edit); --tone-focus:var(--edit-focus);}
+  .tone-stay{--tone:var(--stay); --tone-focus:var(--stay-focus);}
+  .subtasks{color:var(--dim); margin-top:1px;}
+  .footer{color:var(--faint); margin-top:4px;}
+</style>
+</head>
+<body>
+  <div class="behind">
+    <div class="prompt"><span class="chevron">❯</span> /todo</div>
+    <div class="answer">The pane owns the keys until Esc.</div>
+    <div class="prompt"><span class="chevron">❯</span> run #3 with its first draft</div>
+    <div class="answer">⚡ Auto it from the pane — the chip and the verb share one handler.</div>
+  </div>
+
+  <div class="overlay">
+    <div class="pane">
+      <div class="row hdr">
+        <span class="count">7</span><span class="word">Todos</span><span class="fill"></span>
+        <span class="toggle" style="color:var(--running)">▶1</span>
+        <span class="toggle" style="color:var(--prompting)">◔1</span>
+        <span class="toggle" style="color:var(--pending)">●2</span>
+        <span class="toggle" style="color:var(--failed)">✗1</span>
+        <span class="toggle" style="color:var(--paused)">⏸1</span>
+        <span class="toggle" style="color:var(--stopped)">■1</span>
+        <span class="toggle hidden-toggle" style="color:var(--done)">✓0</span>
+        <span class="fire">🔥</span>
+      </div>
+      <div class="add"><span class="plus">＋</span> add todo…</div>
+      <div class="rule-double">════════════════════════════════════════════════════════════════════════════════</div>
+
+      <div class="todo row t-running">
+        <span class="num">#1</span><span>fix the login redirect loop</span>
+        <span class="gap">─ · ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</span>
+        <span class="mark">✶</span>
+      </div>
+      <div class="question">■ Stop #1? Execution halts; the todo is kept.</div>
+      <div class="chips">
+        <span class="chip tone-stopped">■</span>
+        <span class="chip tone-stay focus">↩</span>
+      </div>
+
+      <div class="rule-single">──────────────────────────────────────────────────────────────────────────────</div>
+      <div class="todo row t-pending">
+        <span class="num">#3</span><span>port the drafter to ctx.llm</span>
+        <span class="gap">─ · ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</span>
+        <span class="mark">●</span>
+      </div>
+      <div class="prompt">Replace the haiku drafter agent with one ctx.llm complete_structured call, keeping the<span class="cut">…</span></div>
+      <div class="prompt">same [todo-drafts:N] key contract. Store up to 3 drafts on the todo row.<span class="cut">…</span></div>
+      <div class="chips">
+        <span class="chip tone-running focus">▶</span>
+        <span class="chip tone-running">⚡</span>
+        <span class="chip tone-edit">✎</span>
+        <span class="chip tone-danger">✕</span>
+        <span class="chip tone-details">☰</span>
+      </div>
+      <div class="subtasks">▸ 2 subtasks · 1 done · 12 calls</div>
+
+      <div class="rule-single">──────────────────────────────────────────────────────────────────────────────</div>
+      <div class="todo row t-pending">
+        <span class="num">#5</span><span>fix the rev-guard retry</span>
+        <span class="gap">─ · ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</span>
+        <span class="mark">●</span>
+      </div>
+      <div class="chips">
+        <span class="chip tone-running">▶</span>
+        <span class="chip tone-running">⚡</span>
+        <span class="chip tone-edit">✎</span>
+        <span class="chip tone-danger">✕</span>
+        <span class="chip tone-details">☰</span>
+      </div>
+
+      <div class="rule-single">──────────────────────────────────────────────────────────────────────────────</div>
+      <div class="todo row t-paused">
+        <span class="num">#2</span><span>resume the paused worker</span>
+        <span class="gap">─ · ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</span>
+        <span class="mark">⏸</span>
+      </div>
+      <div class="chips">
+        <span class="chip tone-running">⏵</span>
+        <span class="chip tone-stopped">■</span>
+        <span class="chip tone-details">☰</span>
+      </div>
+
+      <div class="rule-double">════════════════════════════════════════════════════════════════════════════════</div>
+      <div class="footer">1 hidden by the view</div>
+    </div>
+  </div>
+</body>
+</html>
